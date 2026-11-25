@@ -38,6 +38,21 @@ static esp_err_t set_in1(motor_t *m, uint32_t duty)
     return ledc_update_duty(LEDC_LOW_SPEED_MODE, m->ledc_ch);
 }
 
+/* The direction line could not be written: xIN2 is stuck at a level we cannot
+ * change, so stop the motor with xIN1 alone. Read xIN2 back to learn where it
+ * really is (the failed write may or may not have landed); when the bus is dead
+ * assume it did not move. IN2 high -> IN1 high (brake), IN2 low -> IN1 low (coast). */
+static void stop_after_dir_failure(motor_t *m)
+{
+    uint16_t on, off;
+    if (pca9685_read_channel(m->dir_ch, &on, &off) == ESP_OK) {
+        m->dir_high = (on & 0x1000) && !(off & 0x1000);
+    }
+    set_in1(m, m->dir_high ? PWM_FULL : 0);
+    m->speed = 0;
+    ESP_LOGE(TAG, "direction line (PCA9685 ch%d) write failed, motor %s", m->dir_ch, m->dir_high ? "braked" : "coasting");
+}
+
 /* Drive xIN1 with `duty` and xIN2 with `dir_high`, sequenced so the bridge never
  * sees a state that pushes the motor against the direction it is leaving. */
 static esp_err_t apply(motor_t *m, uint32_t duty, bool dir_high)
@@ -46,7 +61,12 @@ static esp_err_t apply(motor_t *m, uint32_t duty, bool dir_high)
         if (!dir_high) {
             ESP_RETURN_ON_ERROR(set_in1(m, 0), TAG, "pwm");     /* leaving reverse: IN1 low first */
         }
-        ESP_RETURN_ON_ERROR(pca9685_set_level(m->dir_ch, dir_high), TAG, "direction line (PCA9685 ch%d)", m->dir_ch);
+        const esp_err_t err = pca9685_set_level(m->dir_ch, dir_high);
+        if (err != ESP_OK) {
+            /* never leave the bridge in the half-switched state (IN1 low + IN2 high = full reverse) */
+            stop_after_dir_failure(m);
+            return err;
+        }
         m->dir_high = dir_high;
     }
     return set_in1(m, duty);

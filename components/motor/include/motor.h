@@ -9,6 +9,10 @@
  *   reverse: IN2 = 1, IN1 = inverted  -> drive / brake  (slow decay)
  * The duty inversion for reverse is handled here; expect reverse to feel
  * a little stronger at low speeds than forward.
+ *
+ * If the direction line cannot be written (I2C error), the motor is stopped
+ * with IN1 alone - braked when IN2 is stuck high, coasting when it is low -
+ * and the call returns the error.
  */
 #pragma once
 
