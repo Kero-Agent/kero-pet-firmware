@@ -1,0 +1,14 @@
+# build output
+.pio/
+build/
+
+# downloaded by the ESP-IDF component manager
+managed_components/
+
+# generated from sdkconfig.defaults
+sdkconfig
+sdkconfig.old
+sdkconfig.kero
+
+# editor
+.vscode/

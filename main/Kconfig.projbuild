@@ -1,0 +1,77 @@
+menu "Kero robot"
+
+    comment "Modules: a disabled module is not initialised, its code stays in the build"
+
+    config KERO_ENABLE_BATTERY
+        bool "Battery voltage (ADC)"
+        default y
+
+    config KERO_ENABLE_PCA9685
+        bool "PCA9685 on the power board"
+        default y
+
+    config KERO_ENABLE_SERVO
+        bool "Servos (needs PCA9685)"
+        default y
+        depends on KERO_ENABLE_PCA9685
+
+    config KERO_ENABLE_MOTOR
+        bool "Motors / DRV8833 (needs PCA9685)"
+        default y
+        depends on KERO_ENABLE_PCA9685
+
+    config KERO_ENABLE_IMU
+        bool "IMU LSM6DS3TR-C"
+        default y
+
+    config KERO_ENABLE_AUDIO
+        bool "Audio: speaker amplifier and microphone"
+        default y
+
+    config KERO_ENABLE_DISPLAY
+        bool "Display (QSPI panel and backlight)"
+        default y
+
+    config KERO_ENABLE_CAMERA
+        bool "Camera GC2145"
+        default y
+
+    comment "Parameters"
+
+    config KERO_AUDIO_SAMPLE_RATE
+        int "Audio sample rate (Hz)"
+        default 16000
+        range 8000 48000
+        help
+            Playback and capture share the clock. The ICS-43434 runs in its
+            low-power mode up to 18.75 kHz and in high-performance mode from 23 kHz.
+
+    config KERO_LCD_PCLK_MHZ
+        int "LCD QSPI clock (MHz)"
+        default 10
+        range 1 80
+        help
+            Start low while the screen hangs on jumper wires, raise it once it works.
+
+    config KERO_LCD_INVERT_COLOR
+        bool "LCD: invert colours"
+        default n
+        help
+            Turn on when black and white are swapped. Can also be toggled at
+            run time with the console command "lcd invert".
+
+    config KERO_LCD_BL_ACTIVE_HIGH
+        bool "LCD backlight is on when GPIO43 is high"
+        default y
+
+    config KERO_LCD_BL_DEFAULT
+        int "LCD backlight after start (percent)"
+        default 60
+        range 0 100
+
+    config KERO_CAM_XCLK_MHZ
+        int "Camera XCLK (MHz)"
+        default 20
+        range 6 24
+
+endmenu
