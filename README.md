@@ -24,6 +24,7 @@ components/
   display/   360×360 QSPI 屏 + 背光
   cam/       GC2145 摄像头（接口前缀是 kcam_，避开摄像头库里已有的 cam_init）
   shell/     USB 调试命令行
+web/         网页调试台（见下面"网页调试台"一节）
 ```
 
 每个模块的结构相同：
@@ -69,6 +70,26 @@ pio run -t menuconfig   配置菜单 → Kero robot
 | `lcd bl <0..100>` | 背光；`lcd test` 彩条；`lcd fill <颜色>`；`lcd invert <0\|1>` |
 | `cam` | 传感器 ID；`cam shot [帧数]` 抓帧并统计帧率 |
 | `preview [秒]` | 摄像头画面显示到屏幕 |
+
+## 网页调试台（`web/`）
+
+一个不用安装的网页，分两页：
+
+- **调试**：每个模块一块面板（舵机、电机、IMU、电池、声音、屏幕、摄像头、I2C），底部是串口控制台。
+- **展示**：机器人模型，可以拖动关节、点预设动作、用摇杆开底盘、换表情、播放声音。
+
+网页通过浏览器的 Web Serial 连到上面这套命令行，固件不用改。要求电脑版 Chrome 或 Edge；其他浏览器只能用"模拟"模式，页面里的机器人是假的，用来看界面。
+
+- 在线地址：`https://kero-agent.github.io/kero-pet-firmware/`（合并到 `main` 后由 `.github/workflows/pages.yml` 自动发布；仓库要先在 Settings → Pages 里把 Source 选成 GitHub Actions）。
+- 本地打开：`cd web && python -m http.server 8000`，然后访问 `http://localhost:8000`。直接双击 `index.html` 不行。
+- 自检：`node web/tests/selftest.js`，不需要浏览器和硬件。
+- 连接真机前先关掉 `pio device monitor`，一个串口只能被一个程序占用。
+
+代码结构：`js/link.js` 命令队列和串口，`js/sim.js` 模拟机器人，`js/robot.js` 把命令包成函数并解析输出，`js/debug.js` / `js/showcase.js` 两个页面，`js/pet.js` 模型。固件命令的输出格式改了，要同步改 `robot.js` 里的解析函数和 `sim.js`。
+
+舵机通道默认按 CH0 脖子 α、CH1 脖子 β、CH2 左肩、CH3 左肘、CH4 右肩、CH5 右肘，可以在调试页改；校准值存在浏览器里，连接时写进机器人。
+
+网页里还做不了的：摄像头画面（固件只能报每帧的平均颜色）、让真机圆屏显示表情、无线连接。
 
 ## 建议的上电顺序
 

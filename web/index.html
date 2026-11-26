@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kero Pet</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%2317231D'/%3E%3Crect x='9' y='10' width='5' height='12' rx='2.5' fill='%237BE0A2'/%3E%3Crect x='18' y='10' width='5' height='12' rx='2.5' fill='%237BE0A2'/%3E%3C/svg%3E">
+<meta name="description" content="Kero 桌面机器人的调试台和展示页：通过 USB 直接控制舵机、电机、屏幕、声音和摄像头。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="brand">
+      <svg aria-hidden="true" width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="7" width="20" height="16" rx="6"></rect><circle cx="11.5" cy="15" r="2"></circle><circle cx="18.5" cy="15" r="2"></circle><path d="M9 4.5v2.5M21 4.5v2.5"></path></svg>
+      <span>Kero Pet</span>
+    </div>
+    <nav class="tabs" aria-label="页面">
+      <a href="#debug" data-view="debug">调试</a>
+      <a href="#showcase" data-view="showcase">展示</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <div class="segmented" role="group" aria-label="数据来源">
+      <button type="button" id="mode-real">真机</button>
+      <button type="button" id="mode-sim">模拟</button>
+    </div>
+    <div class="chip" id="conn-chip"><span class="dot"></span><span id="conn-text">模拟模式</span></div>
+    <span class="mono muted" id="conn-info"></span>
+    <button type="button" class="btn danger" id="estop">急停</button>
+  </div>
+</header>
+
+<div class="banner" id="banner" hidden></div>
+
+<!-- ======================= 调试 ======================= -->
+<div class="view" id="view-debug" hidden>
+  <div class="layout">
+    <aside class="side">
+      <section class="card">
+        <h2 class="eyebrow">模块状态</h2>
+        <div class="module-list" id="module-list"></div>
+        <button type="button" class="btn block" id="retry-modules">重试失败的模块</button>
+      </section>
+      <section class="card">
+        <h2 class="eyebrow">系统</h2>
+        <dl class="kv" id="sys-info">
+          <dt>运行时间</dt><dd id="sys-uptime">—</dd>
+          <dt>上次复位</dt><dd id="sys-reset">—</dd>
+          <dt>内部内存</dt><dd id="sys-heap">—</dd>
+          <dt>PSRAM</dt><dd id="sys-psram">—</dd>
+          <dt>固件</dt><dd id="sys-idf">—</dd>
+        </dl>
+        <button type="button" class="btn block" id="reboot">重启固件</button>
+      </section>
+    </aside>
+
+    <main class="main">
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>舵机</h2>
+            <p class="hint">6 路，PCA9685 通道 0–5，50 Hz。每个通道接的是哪个关节可以在这里改。</p>
+          </div>
+          <div class="row">
+            <button type="button" class="btn" id="servo-home">全部回中</button>
+            <button type="button" class="btn" id="servo-release">全部释放</button>
+            <button type="button" class="btn outline" id="servo-export">导出校准</button>
+          </div>
+        </div>
+        <div class="scroll-x">
+          <div class="servo-table" id="servo-table">
+            <div class="servo-row servo-head">
+              <span>关节</span><span>通道</span><span>角度</span><span class="right">度</span><span class="right">脉宽</span><span>限位</span><span>操作</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid g2">
+        <section class="card">
+          <h2>电机</h2>
+          <p class="hint">DRV8833，两路直流电机，速度 −100 到 100。松开滑条不会自动停，用下面的按钮停。</p>
+          <div class="slider-row">
+            <label for="mot-a">左轮 A</label>
+            <input id="mot-a" type="range" min="-100" max="100" value="0">
+            <span class="mono right" id="mot-a-val">0 %</span>
+          </div>
+          <div class="slider-row">
+            <label for="mot-b">右轮 B</label>
+            <input id="mot-b" type="range" min="-100" max="100" value="0">
+            <span class="mono right" id="mot-b-val">0 %</span>
+          </div>
+          <div class="row top-gap">
+            <button type="button" class="btn" id="mot-stop">停止（滑行）</button>
+            <button type="button" class="btn" id="mot-brake">刹车</button>
+            <label class="check"><input id="mot-link" type="checkbox"> 两轮联动</label>
+          </div>
+          <label class="check"><input id="mot-wdt" type="checkbox" checked> 500 ms 没有新指令就自动停</label>
+          <p class="note">同样的速度值，反转在低速时比正转更有力，这是电路决定的。</p>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>IMU</h2>
+            <button type="button" class="btn" id="imu-cal">陀螺校零</button>
+          </div>
+          <p class="hint">LSM6DS3TR-C，页面每 200 ms 读一次。</p>
+          <div class="stat-grid">
+            <div class="stat"><span>加速度 X</span><strong id="imu-ax">—</strong></div>
+            <div class="stat"><span>加速度 Y</span><strong id="imu-ay">—</strong></div>
+            <div class="stat"><span>加速度 Z</span><strong id="imu-az">—</strong></div>
+            <div class="stat"><span>角速度 X</span><strong id="imu-gx">—</strong></div>
+            <div class="stat"><span>角速度 Y</span><strong id="imu-gy">—</strong></div>
+            <div class="stat"><span>角速度 Z</span><strong id="imu-gz">—</strong></div>
+          </div>
+          <div class="chart-box">
+            <canvas id="imu-chart" height="110" aria-label="加速度三轴曲线" role="img"></canvas>
+            <div class="legend">
+              <span><i style="background: var(--accent)"></i>X</span>
+              <span><i style="background: var(--blue)"></i>Y</span>
+              <span><i style="background: var(--orange)"></i>Z</span>
+              <span class="push" id="imu-temp">温度 —</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid g3">
+        <section class="card">
+          <h2>电池</h2>
+          <div class="big-number"><strong id="bat-v">—</strong><span>V</span><em class="pill" id="bat-pct">—</em></div>
+          <div class="chart-box plain"><canvas id="bat-chart" height="70" aria-label="电池电压曲线" role="img"></canvas></div>
+          <p class="hint" id="bat-note">舵机动作时电压会下沉，这里能直接看到。</p>
+        </section>
+
+        <section class="card">
+          <h2>声音</h2>
+          <div class="row end">
+            <div class="field"><label for="spk-hz">频率 Hz</label><input id="spk-hz" type="number" value="1000" min="50" max="7000"></div>
+            <div class="field"><label for="spk-ms">时长 ms</label><input id="spk-ms" type="number" value="300" min="20" max="5000"></div>
+            <button type="button" class="btn primary" id="spk-play">播放</button>
+          </div>
+          <div class="slider-row narrow">
+            <label for="spk-vol">音量</label>
+            <input id="spk-vol" type="range" min="0" max="100" value="30">
+            <span class="mono right" id="spk-vol-val">30 %</span>
+          </div>
+          <div class="divider"></div>
+          <div class="meter-head"><strong>麦克风电平</strong><span class="mono muted" id="mic-db">—</span></div>
+          <div class="meter"><div id="mic-bar"></div></div>
+          <div class="row top-gap">
+            <button type="button" class="btn" id="mic-echo">录 2 秒再放出来</button>
+            <label class="check"><input id="mic-watch" type="checkbox"> 持续监听</label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>屏幕</h2>
+          <div class="screen-row">
+            <div class="round-screen" aria-hidden="true"><span></span><span></span></div>
+            <div class="grow">
+              <label for="lcd-bl" class="small muted" id="lcd-bl-label">背光 60 %</label>
+              <input id="lcd-bl" type="range" min="0" max="100" value="60">
+              <label class="check"><input id="lcd-inv" type="checkbox"> 反色</label>
+            </div>
+          </div>
+          <div class="row">
+            <button type="button" class="btn" id="lcd-test">彩条测试</button>
+            <select id="lcd-color" class="select" aria-label="纯色">
+              <option value="">纯色…</option>
+              <option value="black">黑</option><option value="white">白</option><option value="red">红</option>
+              <option value="green">绿</option><option value="blue">蓝</option><option value="yellow">黄</option>
+            </select>
+            <button type="button" class="btn" id="lcd-off">关屏</button>
+            <button type="button" class="btn" id="lcd-on">开屏</button>
+          </div>
+          <p class="hint">360×360 圆屏。触摸芯片还没驱动，地址先用 I2C 扫描找。</p>
+        </section>
+      </div>
+
+      <div class="grid g2">
+        <section class="card">
+          <div class="card-head">
+            <h2>摄像头</h2>
+            <span class="pill" id="cam-state">—</span>
+          </div>
+          <div class="cam-row">
+            <div class="cam-view" id="cam-view">
+              <svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><circle cx="12" cy="12.5" r="3.5"></circle><path d="M8 6l1.5-2h5L16 6"></path></svg>
+              <span id="cam-view-text">固件还不能把画面传到网页，这里先显示每帧的平均颜色</span>
+            </div>
+            <div class="cam-side">
+              <p class="note" id="cam-msg">抓帧可以确认传感器在出图，并给出帧率。</p>
+              <button type="button" class="btn primary" id="cam-init">重新初始化</button>
+              <button type="button" class="btn" id="cam-shot">抓 10 帧</button>
+              <button type="button" class="btn" id="cam-preview">显示到机器人屏幕 10 秒</button>
+              <div class="row">
+                <label class="check"><input id="cam-h" type="checkbox"> 水平镜像</label>
+                <label class="check"><input id="cam-v" type="checkbox"> 上下翻转</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>I2C 总线</h2>
+            <button type="button" class="btn" id="i2c-scan">扫描</button>
+          </div>
+          <div class="i2c-list" id="i2c-list"><p class="hint">点"扫描"列出总线上的设备。</p></div>
+          <div class="row end top-gap">
+            <div class="field"><label for="i2c-addr">地址</label><input id="i2c-addr" type="text" value="0x6A"></div>
+            <div class="field"><label for="i2c-reg">寄存器</label><input id="i2c-reg" type="text" value="0x0F"></div>
+            <div class="field"><label for="i2c-val">值</label><input id="i2c-val" type="text" value=""></div>
+            <button type="button" class="btn" id="i2c-read">读</button>
+            <button type="button" class="btn" id="i2c-write">写</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <footer class="console" id="console">
+    <div class="console-inner">
+      <div class="card-head">
+        <h2 class="eyebrow">串口控制台</h2>
+        <div class="row">
+          <label class="check dark"><input id="con-poll" type="checkbox"> 显示自动轮询</label>
+          <button type="button" class="btn ghost" id="con-clear">清空</button>
+          <button type="button" class="btn ghost" id="con-save">保存日志</button>
+          <button type="button" class="btn ghost" id="con-toggle">收起</button>
+        </div>
+      </div>
+      <pre class="console-log" id="con-log" tabindex="0" aria-label="串口输出"></pre>
+      <form class="console-input" id="con-form">
+        <label for="con-in">kero&gt;</label>
+        <input id="con-in" type="text" autocomplete="off" spellcheck="false" placeholder="输入固件命令，例如 help">
+        <button type="submit" class="btn bright">发送</button>
+      </form>
+    </div>
+  </footer>
+</div>
+
+<!-- ======================= 展示 ======================= -->
+<div class="view" id="view-showcase" hidden>
+  <div class="layout">
+    <aside class="side">
+      <section class="card">
+        <h2>动作</h2>
+        <p class="hint">点一下，模型和真机一起做。</p>
+        <div class="action-grid" id="action-grid"></div>
+        <button type="button" class="btn outline block" id="pose-save">把当前姿势存成动作</button>
+      </section>
+      <section class="card">
+        <h2>关节</h2>
+        <div class="joint-list" id="joint-list"></div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h1>Kero</h1>
+            <p class="hint">拖动蓝色圆点摆姿势，拖头部转头，真机的舵机跟着动。</p>
+          </div>
+          <div class="row">
+            <span class="tag">电池 <strong class="mono" id="show-bat">—</strong></span>
+            <span class="tag">前后倾 <strong class="mono" id="show-pitch">—</strong></span>
+            <span class="tag">左右倾 <strong class="mono" id="show-roll">—</strong></span>
+          </div>
+        </div>
+        <div id="pet-stage" class="pet-stage"></div>
+      </section>
+
+      <div class="grid g2">
+        <section class="card">
+          <h2>底盘</h2>
+          <div class="drive-row">
+            <div class="joystick" id="joystick" role="application" aria-label="底盘摇杆：拖动控制前进后退和转向" tabindex="0">
+              <span class="j-n">前</span><span class="j-s">后</span><span class="j-w">左</span><span class="j-e">右</span>
+              <span class="knob" id="joy-knob"></span>
+            </div>
+            <div class="grow">
+              <p class="hint">拖动摇杆开车，松手就停。选中摇杆后也可以用键盘方向键。</p>
+              <div class="wheel-readout">
+                <span class="mono" id="drv-l">左轮 0 %</span>
+                <span class="mono" id="drv-r">右轮 0 %</span>
+              </div>
+              <label for="drv-max" class="small muted" id="drv-max-label">速度上限 60 %</label>
+              <input id="drv-max" type="range" min="10" max="100" value="60">
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>动作编排</h2>
+            <span class="pill warn">第二期再做</span>
+          </div>
+          <p class="hint">以后在这里按时间排脖子、手臂、表情和声音。现在先用左边的预设动作，或者把摆好的姿势存下来。</p>
+          <div class="timeline" aria-hidden="true">
+            <div><span>脖子</span><i></i></div>
+            <div><span>左臂</span><i></i></div>
+            <div><span>右臂</span><i></i></div>
+            <div><span>表情</span><i></i></div>
+            <div><span>声音</span><i></i></div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <aside class="side right">
+      <section class="card">
+        <div class="card-head">
+          <h2>它看到的</h2>
+          <span class="mono muted" id="show-fps"></span>
+        </div>
+        <div class="cam-view" id="show-cam">
+          <svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><circle cx="12" cy="12.5" r="3.5"></circle><path d="M8 6l1.5-2h5L16 6"></path></svg>
+          <span>摄像头画面要等固件支持传图</span>
+        </div>
+        <button type="button" class="btn block" id="show-shot">看一眼（取平均颜色）</button>
+      </section>
+
+      <section class="card">
+        <h2>表情</h2>
+        <p class="hint">先显示在模型的脸上。真机圆屏上的表情要等固件支持。</p>
+        <div class="face-grid" id="face-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>声音</h2>
+        <div class="grid g3 tight">
+          <button type="button" class="btn" id="snd-chirp">叫一声</button>
+          <button type="button" class="btn" id="snd-scale">音阶</button>
+          <button type="button" class="btn" id="snd-echo">学舌</button>
+        </div>
+        <div class="slider-row narrow">
+          <label for="show-vol">音量</label>
+          <input id="show-vol" type="range" min="0" max="100" value="30">
+          <span class="mono right" id="show-vol-val">30 %</span>
+        </div>
+        <div class="meter-head"><span>它听到的</span><span class="mono muted" id="show-db">—</span></div>
+        <div class="meter"><div id="show-mic-bar"></div></div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<dialog id="cal-dialog" class="dialog">
+  <form method="dialog" id="cal-form">
+    <h2 id="cal-title">校准</h2>
+    <p class="hint">脉宽决定 0° 和 180° 实际转到哪里；限位防止舵机顶到结构。改完点"应用"，会写进机器人并记在这台电脑的浏览器里。</p>
+    <div class="grid g2 tight">
+      <div class="field"><label for="cal-min">0° 脉宽 µs</label><input id="cal-min" type="number" min="400" max="2600"></div>
+      <div class="field"><label for="cal-max">180° 脉宽 µs</label><input id="cal-max" type="number" min="400" max="2600"></div>
+      <div class="field"><label for="cal-trim">微调 µs</label><input id="cal-trim" type="number" min="-300" max="300"></div>
+      <div class="field"><label for="cal-home">回中角度 °</label><input id="cal-home" type="number" min="0" max="180"></div>
+      <div class="field"><label for="cal-lo">限位下限 °</label><input id="cal-lo" type="number" min="0" max="180"></div>
+      <div class="field"><label for="cal-hi">限位上限 °</label><input id="cal-hi" type="number" min="0" max="180"></div>
+    </div>
+    <label class="check"><input id="cal-invert" type="checkbox"> 方向反过来</label>
+    <div class="row end top-gap">
+      <button type="button" class="btn" id="cal-cancel">取消</button>
+      <button type="submit" class="btn primary">应用</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
