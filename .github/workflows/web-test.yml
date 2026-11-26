@@ -1,0 +1,28 @@
+# Self-test for the web console in docs/.
+# Publishing is done by GitHub Pages itself: Settings -> Pages -> Deploy from a branch -> main, /docs.
+name: Web console self-test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/web-test.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Self-test (command link, parsers, simulator)
+        run: node docs/tests/selftest.js

@@ -1,4 +1,4 @@
-// Self-test without a browser or a robot:  node web/tests/selftest.js
+// Self-test without a browser or a robot:  node docs/tests/selftest.js
 // Runs the command link against the simulated robot and against canned firmware output.
 
 import assert from 'node:assert/strict';
