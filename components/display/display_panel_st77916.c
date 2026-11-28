@@ -1,6 +1,7 @@
 /**
  * ST77916 (1.8" 360x360 round screen WLK1804RCTP-14P) in QSPI mode.
- * The controller type is an assumption: no datasheet for this screen is at hand.
+ * No datasheet for this screen is at hand; it shows a picture with the
+ * JC3636W518 V2 init sequence (variant 2 below), which is the default.
  */
 #include "display_panel.h"
 #include "esp_lcd_st77916.h"
@@ -409,7 +410,7 @@ static const variant_t s_variants[] = {
     { "JC3636W518", TABLE(init_jc3636w518) },
     { "JC3636W518 V2", TABLE(init_jc3636w518_v2) },
 };
-static int s_variant;
+static int s_variant = 2;      /* confirmed on the WLK1804RCTP-14P: 0 and 1 give no picture */
 
 int display_panel_variant_count(void)
 {
