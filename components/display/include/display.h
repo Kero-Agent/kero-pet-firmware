@@ -64,6 +64,20 @@ const char *display_init_sequence_name(int index);
 int display_get_init_sequence(void);
 esp_err_t display_set_init_sequence(int index);
 
+/**
+ * QSPI clock in MHz. Changing it creates the panel connection again; use a low
+ * value (1..5) to find out whether long or loose wires spoil the picture.
+ */
+int display_get_clock_mhz(void);
+esp_err_t display_set_clock_mhz(int mhz);
+
+/**
+ * Six horizontal bands, top to bottom: white, black, then one band per data
+ * line D0..D3 (dark blue, dark olive green, green, dark crimson). A band that
+ * looks wrong points at the data line that is broken or swapped.
+ */
+esp_err_t display_line_test(void);
+
 esp_err_t display_set_invert(bool invert);
 esp_err_t display_set_mirror(bool mirror_x, bool mirror_y);
 esp_err_t display_set_on(bool on);

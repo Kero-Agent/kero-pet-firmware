@@ -54,7 +54,8 @@ static int cmd_lcd(int argc, char **argv)
         return 1;
     }
     const char *sub = argv[1];
-    if (strcmp(sub, "test") == 0 || strcmp(sub, "fill") == 0 || strcmp(sub, "rect") == 0) {
+    if (strcmp(sub, "test") == 0 || strcmp(sub, "fill") == 0 || strcmp(sub, "rect") == 0 ||
+        strcmp(sub, "lines") == 0 || (strcmp(sub, "clk") == 0 && argc == 3)) {
         display_takeover();     /* stop the animated face, it would draw over this */
     }
     if (strcmp(sub, "test") == 0) {
@@ -75,6 +76,23 @@ static int cmd_lcd(int argc, char **argv)
             return 1;
         }
         return report(display_fill_rect(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), c));
+    }
+    if (strcmp(sub, "lines") == 0) {
+        const esp_err_t err = display_line_test();
+        if (err == ESP_OK) {
+            printf("bands from the top: white, black, D0 dark blue, D1 dark olive green, D2 green, D3 dark crimson\n");
+        }
+        return report(err);
+    }
+    if (strcmp(sub, "clk") == 0) {
+        if (argc == 3) {
+            const esp_err_t err = display_set_clock_mhz(atoi(argv[2]));
+            if (err != ESP_OK) {
+                return report(err);
+            }
+        }
+        printf("QSPI clock %d MHz\n", display_get_clock_mhz());
+        return 0;
     }
     if (strcmp(sub, "seq") == 0) {
         if (argc == 3) {
@@ -107,6 +125,8 @@ static int cmd_lcd(int argc, char **argv)
            "  lcd test                    colour bars, grey ramp, orientation marks\n"
            "  lcd fill <colour|rrggbb>    whole screen\n"
            "  lcd rect <x> <y> <w> <h> <colour>\n"
+           "  lcd lines                   one band per data line, to find a broken wire\n"
+           "  lcd clk [mhz]               show / change the QSPI clock (1..80)\n"
            "  lcd seq [n]                 list the panel init sequences / switch to one\n"
            "  lcd invert <0|1>            colour inversion\n"
            "  lcd mirror <x:0|1> <y:0|1>\n"
@@ -118,7 +138,7 @@ void display_register_commands(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "lcd",
-        .help = "display: bl <0..100> | test | fill <colour> | rect | seq [n] | invert <0|1> | mirror <x> <y> | on | off",
+        .help = "display: bl <0..100> | test | fill <colour> | rect | lines | clk [mhz] | seq [n] | invert <0|1> | mirror <x> <y> | on | off",
         .func = cmd_lcd,
     };
     esp_console_cmd_register(&cmd);

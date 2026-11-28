@@ -31,6 +31,8 @@ static bool s_ready;
 static bool s_bl_ready;
 static int s_bl_percent;
 static void (*s_takeover_hook)(void);
+static bool s_bus_ready;
+static int s_pclk_mhz = CONFIG_KERO_LCD_PCLK_MHZ;
 
 void display_set_takeover_hook(void (*hook)(void))
 {
@@ -138,7 +140,7 @@ esp_err_t display_init(void)
         ESP_RETURN_ON_FALSE(s_done && s_lock && s_buf, ESP_ERR_NO_MEM, TAG, "out of memory");
     }
 
-    if (!s_io) {
+    if (!s_bus_ready) {
         const spi_bus_config_t bus = {
             .sclk_io_num = BOARD_LCD_SCK,
             .data0_io_num = BOARD_LCD_D0,
@@ -148,14 +150,16 @@ esp_err_t display_init(void)
             .max_transfer_sz = CHUNK_PIXELS * sizeof(uint16_t),
         };
         ESP_RETURN_ON_ERROR(spi_bus_initialize(LCD_HOST, &bus, SPI_DMA_CH_AUTO), TAG, "spi bus");
-
+        s_bus_ready = true;
+    }
+    if (!s_io) {
         display_panel_io_params_t p;
         display_panel_get_io_params(&p);
         const esp_lcd_panel_io_spi_config_t io_cfg = {
             .cs_gpio_num = BOARD_LCD_CS,
             .dc_gpio_num = -1,
             .spi_mode = p.spi_mode,
-            .pclk_hz = CONFIG_KERO_LCD_PCLK_MHZ * 1000 * 1000,
+            .pclk_hz = s_pclk_mhz * 1000 * 1000,
             .trans_queue_depth = 4,
             .on_color_trans_done = on_color_trans_done,
             .lcd_cmd_bits = p.lcd_cmd_bits,
@@ -186,7 +190,7 @@ esp_err_t display_init(void)
 
     s_ready = true;
     ESP_LOGI(TAG, "%s %dx%d on QSPI at %d MHz (the panel cannot be read back: check the picture)",
-             display_panel_name(), BOARD_LCD_H_RES, BOARD_LCD_V_RES, CONFIG_KERO_LCD_PCLK_MHZ);
+             display_panel_name(), BOARD_LCD_H_RES, BOARD_LCD_V_RES, s_pclk_mhz);
     return display_fill(0);
 }
 
@@ -266,6 +270,48 @@ esp_err_t display_test_pattern(void)
     /* red mark in the middle of the top edge, green in the middle of the left edge: shows orientation */
     ESP_RETURN_ON_ERROR(display_fill_rect(W / 2 - 15, 30, 30, 30, display_rgb(255, 0, 0)), TAG, "mark");
     ESP_RETURN_ON_ERROR(display_fill_rect(30, H / 2 - 15, 30, 30, display_rgb(0, 255, 0)), TAG, "mark");
+    return ESP_OK;
+}
+
+int display_get_clock_mhz(void)
+{
+    return s_pclk_mhz;
+}
+
+esp_err_t display_set_clock_mhz(int mhz)
+{
+    ESP_RETURN_ON_FALSE(s_ready, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    ESP_RETURN_ON_FALSE(mhz >= 1 && mhz <= 80, ESP_ERR_INVALID_ARG, TAG, "clock out of range");
+    /* The clock belongs to the panel IO: make a new one, and a new panel on top of it. */
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    esp_lcd_panel_del(s_panel);
+    s_panel = NULL;
+    esp_lcd_panel_io_del(s_io);
+    s_io = NULL;
+    s_ready = false;
+    s_pclk_mhz = mhz;
+    xSemaphoreGive(s_lock);
+    return display_init();
+}
+
+esp_err_t display_line_test(void)
+{
+    ESP_RETURN_ON_FALSE(s_ready, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    /* Pixel data goes out four bits at a time, D3..D0 = one nibble. A value made of the
+     * same nibble four times therefore keeps single data lines high for the whole band. */
+    static const uint16_t bands[] = {
+        0xFFFF,     /* all lines high: white */
+        0x0000,     /* all lines low:  black */
+        0x1111,     /* only D0 high:   dark blue */
+        0x2222,     /* only D1 high:   dark olive green */
+        0x4444,     /* only D2 high:   green */
+        0x8888,     /* only D3 high:   dark crimson */
+    };
+    const int n = sizeof(bands) / sizeof(bands[0]);
+    const int h = BOARD_LCD_V_RES / n;
+    for (int i = 0; i < n; i++) {
+        ESP_RETURN_ON_ERROR(display_fill_rect(0, i * h, BOARD_LCD_H_RES, h, bands[i]), TAG, "band");
+    }
     return ESP_OK;
 }
 

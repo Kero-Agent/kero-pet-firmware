@@ -196,6 +196,20 @@
               <option value="2">2 · JC3636W518 V2（新版芯片）</option>
             </select>
           </div>
+          <div class="row" style="margin-top:12px">
+            <button type="button" class="btn" id="lcd-lines">数据线测试</button>
+            <select id="lcd-clk" class="select" aria-label="屏幕时钟">
+              <option value="">时钟…</option>
+              <option value="1">1 MHz（最慢，最抗干扰）</option><option value="5">5 MHz</option>
+              <option value="10">10 MHz（默认）</option><option value="20">20 MHz</option><option value="40">40 MHz</option>
+            </select>
+          </div>
+          <div class="line-key" aria-label="数据线测试应该显示的颜色">
+            <span style="background:#fff;color:#222">白</span><span style="background:#000">黑</span>
+            <span style="background:#102088">D0</span><span style="background:#204410">D1</span>
+            <span style="background:#408820">D2</span><span style="background:#881040">D3</span>
+          </div>
+          <p class="hint">数据线测试：屏幕从上到下应该是这六条干净的色带。哪一条不对，就是对应的那根数据线有问题；全都有条纹时把时钟调到 1 MHz 再试。</p>
           <div class="pic">
             <div class="pic-view" id="pic-view">
               <canvas id="pic-cv" width="360" height="360" aria-label="要发送的图片预览"></canvas>

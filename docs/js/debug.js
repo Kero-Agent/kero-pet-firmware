@@ -291,6 +291,13 @@ export function initDebug(robot) {
     if (ev.target.value) robot.lcd('fill ' + ev.target.value);
     ev.target.value = '';
   });
+  $('lcd-lines').onclick = () => robot.lcd('lines');
+  $('lcd-clk').addEventListener('change', async (ev) => {
+    if (!ev.target.value) return;
+    const r = await robot.cmd('lcd clk ' + ev.target.value, { timeout: 8000 });
+    ev.target.value = '';
+    if (r.ok) await robot.face();
+  });
   $('lcd-seq').addEventListener('change', async (ev) => {
     const r = await robot.cmd('lcd seq ' + ev.target.value, { timeout: 8000 });
     if (r.ok) await robot.face();
