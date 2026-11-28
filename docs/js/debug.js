@@ -2,6 +2,7 @@
 
 import { JOINTS, JOINT_KEYS, SERVO_COUNT, parseI2cScan } from './robot.js';
 import { drawChart } from './chart.js';
+import { fetchManifest, fetchImages, imagesFromFile, pickPort, flashFirmware } from './flash.js';
 
 const $ = (id) => document.getElementById(id);
 const KNOWN_I2C = { '0x40': 'PCA9685（电源板）', '0x6A': 'LSM6DS3TR-C', '0x70': 'PCA9685 广播地址' };
@@ -30,6 +31,85 @@ export function initDebug(robot) {
   }
   $('retry-modules').onclick = () => robot.retryModules();
   $('reboot').onclick = () => robot.reboot();
+
+  // ---------------- firmware update ----------------
+  let manifest = null;
+  let flashing = false;
+  const serialOk = typeof navigator !== 'undefined' && 'serial' in navigator;
+  function fwSay(text, bad) {
+    $('fw-msg').hidden = !text;
+    $('fw-msg').textContent = text;
+    $('fw-msg').className = 'note' + (bad ? ' bad' : '');
+  }
+  function fwButtons() {
+    $('fw-flash').disabled = flashing || !manifest || !serialOk;
+    $('fw-file-btn').disabled = flashing || !serialOk;
+  }
+  fetchManifest().then((m) => {
+    manifest = m;
+    $('fw-version').textContent = '网页上的固件：' + m.version + '（' + m.built + ' 编译）';
+    fwButtons();
+  }).catch((e) => {
+    $('fw-version').textContent = '网页上没有可用的固件：' + e.message;
+  });
+  if (!serialOk) fwSay('烧录需要电脑版 Chrome 或 Edge。');
+  fwButtons();
+
+  /** getImages() returns what to write; it runs after the port is chosen. */
+  async function runFlash(getImages, what) {
+    if (flashing) return;
+    let port;
+    try {
+      port = await pickPort();          // first thing: the port picker needs the click
+    } catch (e) {
+      fwSay(e && e.name === 'NotFoundError' ? '没有选择串口。' : '打不开串口选择：' + e.message, true);
+      return;
+    }
+    if (!window.confirm('把' + what + '写进机器人？\n\n大约需要一分钟。过程中电机和舵机会停下，不要拔 USB 线。')) return;
+    flashing = true;
+    fwButtons();
+    $('fw-meter').hidden = false;
+    $('fw-bar').style.width = '0%';
+    const log = (text) => robot.link.log('sys', '[烧录] ' + text);
+    try {
+      if (robot.mode === 'real') {
+        await robot.emergencyStop();
+        await robot.disconnect();       // the port can only have one user
+      }
+      fwSay('正在准备固件…');
+      const images = await getImages();
+      log(what + '：' + images.map((im) => im.name + ' → 0x' + im.address.toString(16)).join('，'));
+      await flashFirmware({
+        port, images, onLog: log,
+        onProgress(fraction, text) {
+          $('fw-bar').style.width = Math.round(fraction * 100) + '%';
+          fwSay(text + ' ' + Math.round(fraction * 100) + '%');
+        },
+      });
+      log('完成');
+      fwSay('烧录完成，正在重新连接…');
+      await new Promise((r) => setTimeout(r, 2000));    // let the new firmware boot
+      try {
+        const ok = await robot.connectSerial(port);
+        fwSay(ok ? '烧录完成，已经连上新固件。' : '烧录完成，但没等到 kero> 提示符。按一下 RST，再点右上角的"真机"。', !ok);
+      } catch (e) {
+        fwSay('烧录完成。点右上角的"真机"重新连接。');
+      }
+    } catch (e) {
+      log('失败：' + e.message);
+      fwSay('烧录失败：' + e.message + '。如果一直连不上：按住 BOOT，按一下 RST，松开 BOOT，再点一次烧录。', true);
+    } finally {
+      flashing = false;
+      fwButtons();
+    }
+  }
+  $('fw-flash').onclick = () => runFlash(() => fetchImages(manifest), '最新固件 ' + manifest.version);
+  $('fw-file-btn').onclick = () => $('fw-file').click();
+  $('fw-file').addEventListener('change', (ev) => {
+    const file = ev.target.files[0];
+    ev.target.value = '';
+    if (file) runFlash(() => imagesFromFile(file), '本地文件 ' + file.name);
+  });
 
   const RESET_NAMES = { 'power on': '上电', 'software reset': '软件重启', panic: '程序崩溃', brownout: '欠压', USB: 'USB', 'task watchdog': '任务看门狗', 'interrupt watchdog': '中断看门狗' };
   function renderSys() {

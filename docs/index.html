@@ -56,6 +56,15 @@
           <dt>固件</dt><dd id="sys-idf">—</dd>
         </dl>
         <button type="button" class="btn block" id="reboot">重启固件</button>
+        <div class="fw">
+          <h3 class="eyebrow">固件更新</h3>
+          <p class="hint" id="fw-version">正在读取网页上的固件版本…</p>
+          <button type="button" class="btn block primary" id="fw-flash" disabled>烧录最新固件</button>
+          <button type="button" class="btn block" id="fw-file-btn">烧录本地 firmware.bin…</button>
+          <input type="file" id="fw-file" accept=".bin" hidden>
+          <div class="meter" id="fw-meter" hidden><div id="fw-bar"></div></div>
+          <p class="note" id="fw-msg" hidden></p>
+        </div>
       </section>
     </aside>
 

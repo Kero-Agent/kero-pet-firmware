@@ -48,6 +48,11 @@ export class Link {
     for (const fn of this.listeners[event]) fn(...args);
   }
 
+  /** Put a line into the console log that did not come from the shell (kind: 'sys' | 'err'). */
+  log(kind, text) {
+    this._emit('log', kind, text);
+  }
+
   get connected() {
     return !!this.transport;
   }
@@ -223,10 +228,13 @@ export class SerialTransport {
     this._closing = false;
   }
 
-  /** Must be called from a click: the browser shows its port picker. */
-  async open() {
+  /**
+   * Without a port this must be called from a click: the browser shows its port picker.
+   * Pass a port the user already picked (after a firmware update) to skip the picker.
+   */
+  async open(port) {
     // 0x303A is Espressif: the ESP32-S3's built-in USB Serial/JTAG port.
-    this.port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
+    this.port = port || await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
     await this.port.open({ baudRate: 115200 });
     this.writer = this.port.writable.getWriter();
     this.encoder = new TextEncoder();

@@ -1,0 +1,26 @@
+{
+  "name": "kero-firmware",
+  "chip": "ESP32-S3",
+  "version": "4b1a787",
+  "built": "2026-11-28",
+  "parts": [
+    {
+      "file": "bootloader.bin",
+      "offset": 0,
+      "size": 21168,
+      "sha256": "f6c8d0f547f972032c50af99a1bfd4b2a07fd3ff7dba79e2ab28a926e6cbd08e"
+    },
+    {
+      "file": "partitions.bin",
+      "offset": 32768,
+      "size": 3072,
+      "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
+    },
+    {
+      "file": "firmware.bin",
+      "offset": 65536,
+      "size": 454096,
+      "sha256": "afd7b2f781077fa62008ef3759dba9bfc3880b3b00d11707ddfa5d77a05d4536"
+    }
+  ]
+}

@@ -171,10 +171,10 @@ export class Robot {
     await this._afterConnect();
   }
 
-  /** Call from a click: the browser asks which port to use. */
-  async connectSerial() {
+  /** Call from a click: the browser asks which port to use (unless an already picked port is given). */
+  async connectSerial(port) {
     const t = new SerialTransport();
-    await t.open();
+    await t.open(port);
     const ok = await this.link.attach(t);
     this.mode = 'real';
     this._emit('conn');

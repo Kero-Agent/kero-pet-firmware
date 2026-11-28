@@ -2,6 +2,8 @@
 // Runs the command link against the simulated robot and against canned firmware output.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { checkManifest, looksLikeEspImage, md5Hex } from '../js/flash.js';
 import { Link, cleanText } from '../js/link.js';
 import { Robot, parseStatus, parseSys, parseBattery, parseImu, parseMicLevel, parseCamShot, parseI2cScan, parseServoState } from '../js/robot.js';
 
@@ -170,6 +172,38 @@ await test('calibration maps degrees to pulse width and back', async () => {
   robot.config.cal[0].invert = true;
   assert.equal(robot.degToPulse(0, 0), 2500);
   assert.equal(robot.pulseToDeg(0, 2500), 0);
+});
+
+await test('firmware manifest matches the published binaries', async () => {
+  const dir = new URL('../firmware/', import.meta.url);
+  const manifest = JSON.parse(readFileSync(new URL('manifest.json', dir), 'utf8'));
+  const parts = checkManifest(manifest);
+  assert.deepEqual(parts.map((p) => p.offset), [0x0, 0x8000, 0x10000]);
+  for (const p of parts) {
+    const data = new Uint8Array(readFileSync(new URL(p.file, dir)));
+    assert.equal(data.length, p.size, p.file + ' size');
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    assert.equal(Buffer.from(digest).toString('hex'), p.sha256, p.file + ' sha256');
+    if (p.file !== 'partitions.bin') assert.ok(looksLikeEspImage(data), p.file + ' is an ESP image');
+  }
+});
+
+await test('firmware manifest checks reject bad layouts', async () => {
+  const part = (file, offset, size) => ({ file, offset, size });
+  assert.throws(() => checkManifest({ parts: [] }));
+  assert.throws(() => checkManifest({ chip: 'ESP32', parts: [part('a.bin', 0, 10)] }));
+  assert.throws(() => checkManifest({ parts: [part('a.bin', 0, 100), part('b.bin', 50, 10)] }));       // overlap
+  assert.throws(() => checkManifest({ parts: [part('../a.bin', 0, 10)] }));                            // path
+  assert.throws(() => checkManifest({ parts: [part('a.bin', 0x10000, 16 * 1024 * 1024)] }));           // too big
+  assert.deepEqual(checkManifest({ parts: [part('b.bin', 0x8000, 10), part('a.bin', 0, 10)] }).map((p) => p.file), ['a.bin', 'b.bin']);
+});
+
+await test('md5 matches the reference values', async () => {
+  const bytes = (s) => new TextEncoder().encode(s);
+  assert.equal(md5Hex(bytes('')), 'd41d8cd98f00b204e9800998ecf8427e');
+  assert.equal(md5Hex(bytes('abc')), '900150983cd24fb0d6963f7d28e17f72');
+  assert.equal(md5Hex(bytes('The quick brown fox jumps over the lazy dog')), '9e107d9d372bb6826bd80ea726e37d9c');
+  assert.equal(md5Hex(new Uint8Array(1000).fill(0x61)), 'cabe45dcc9ae5b66ba86600cca6b8ba8');
 });
 
 console.log(passed + ' passed' + (process.exitCode ? ', some FAILED' : ''));
