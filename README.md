@@ -12,6 +12,9 @@ main/
   app_main.c        启动入口：初始化各模块 → 启动调试命令行
   app_modules.c     模块表（顺序、依赖、status / init 命令）
   app_preview.c     preview 命令：摄像头画面显示到屏幕
+  app_face.c        默认画面：会眨眼、会转眼珠的表情（face 命令）
+  face_render.c     表情的绘制代码，不依赖硬件，电脑上也能编译
+  app_image.c       img 命令：接收电脑发来的图片并显示
   Kconfig.projbuild 配置菜单 "Kero robot"：模块开关和参数
 components/
   board/     引脚表 board.h（所有引脚只在这里定义）、主 I2C 总线、i2c 命令
@@ -25,6 +28,9 @@ components/
   cam/       GC2145 摄像头（接口前缀是 kcam_，避开摄像头库里已有的 cam_init）
   shell/     USB 调试命令行
 docs/        网页调试台（见下面"网页调试台"一节）
+tools/
+  kero-image.html   网页工具：选图片、裁剪、发到屏幕（Chrome / Edge 直接打开）
+  face_preview.c    在电脑上把表情画成图片，不用烧录就能看效果
 ```
 
 每个模块的结构相同：
@@ -70,6 +76,16 @@ pio run -t menuconfig   配置菜单 → Kero robot
 | `lcd bl <0..100>` | 背光；`lcd test` 彩条；`lcd fill <颜色>`；`lcd invert <0\|1>` |
 | `cam` | 传感器 ID；`cam shot [帧数]` 抓帧并统计帧率 |
 | `preview [秒]` | 摄像头画面显示到屏幕 |
+| `face` | 恢复默认的眨眼表情；`face off` 停止并清屏 |
+| `img show` | 再显示上一张上传的图片（上传用 `tools/kero-image.html`） |
+
+## 屏幕测试：表情和图片
+
+屏幕初始化成功后，默认显示一个会眨眼、会转眼珠的表情。`lcd test` / `lcd fill` / `lcd rect`、`preview` 和上传图片会暂停表情，敲 `face` 恢复。
+
+上传自己的图片：用电脑上的 Chrome 或 Edge 打开 `tools/kero-image.html`，点"连接机器人"选串口，选一张图片（可缩放、拖动），点"发送到屏幕"。图片会缩放裁剪成 360×360，从上往下逐行出现，大约十几秒。图片只存在内存里，重启后恢复为表情。同一时间只能有一个程序占用串口，发图前先关掉其它串口终端。
+
+屏幕是开机后才插上的话，敲 `init display` 重新发送初始化序列（面板不能回读，所以没接屏幕时 `status` 也显示 ok）。
 
 ## 网页调试台（`docs/`）
 

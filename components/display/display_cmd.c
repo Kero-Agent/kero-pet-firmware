@@ -54,6 +54,9 @@ static int cmd_lcd(int argc, char **argv)
         return 1;
     }
     const char *sub = argv[1];
+    if (strcmp(sub, "test") == 0 || strcmp(sub, "fill") == 0 || strcmp(sub, "rect") == 0) {
+        display_takeover();     /* stop the animated face, it would draw over this */
+    }
     if (strcmp(sub, "test") == 0) {
         return report(display_test_pattern());
     }

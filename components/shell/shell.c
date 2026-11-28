@@ -76,7 +76,7 @@ static int cmd_log(int argc, char **argv)
         }
     }
     printf("usage: log <tag|*> <none|error|warn|info|debug|verbose>\n"
-           "tags: board pca9685 servo motor battery imu audio display cam app\n");
+           "tags: board pca9685 servo motor battery imu audio display cam face app\n");
     return 1;
 }
 

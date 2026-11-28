@@ -30,6 +30,19 @@ static uint16_t *s_buf;                 /* DMA-capable transfer buffer */
 static bool s_ready;
 static bool s_bl_ready;
 static int s_bl_percent;
+static void (*s_takeover_hook)(void);
+
+void display_set_takeover_hook(void (*hook)(void))
+{
+    s_takeover_hook = hook;
+}
+
+void display_takeover(void)
+{
+    if (s_takeover_hook) {
+        s_takeover_hook();
+    }
+}
 
 static bool on_color_trans_done(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -114,11 +127,9 @@ uint16_t display_rgb(uint8_t r, uint8_t g, uint8_t b)
 
 esp_err_t display_init(void)
 {
-    if (s_ready) {
-        return ESP_OK;
-    }
-    /* Backlight first: it is useful on its own and shows that the board is alive. */
-    ESP_RETURN_ON_ERROR(display_set_backlight(CONFIG_KERO_LCD_BL_DEFAULT), TAG, "backlight");
+    /* Backlight first: it is useful on its own and shows that the board is alive.
+     * A repeated init keeps the brightness that is set now. */
+    ESP_RETURN_ON_ERROR(display_set_backlight(s_bl_ready ? s_bl_percent : CONFIG_KERO_LCD_BL_DEFAULT), TAG, "backlight");
 
     if (!s_done) {
         s_done = xSemaphoreCreateBinary();
@@ -156,12 +167,22 @@ esp_err_t display_init(void)
     if (!s_panel) {
         ESP_RETURN_ON_ERROR(display_panel_create(s_io, &s_panel), TAG, "panel create");
     }
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_reset(s_panel), TAG, "panel reset");
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_init(s_panel), TAG, "panel init");
+    /* Not while another task is drawing (this may be a repeated init). */
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    esp_err_t err = esp_lcd_panel_reset(s_panel);
+    if (err == ESP_OK) {
+        err = esp_lcd_panel_init(s_panel);
+    }
 #if CONFIG_KERO_LCD_INVERT_COLOR
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_invert_color(s_panel, true), TAG, "invert");
+    if (err == ESP_OK) {
+        err = esp_lcd_panel_invert_color(s_panel, true);
+    }
 #endif
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(s_panel, true), TAG, "display on");
+    if (err == ESP_OK) {
+        err = esp_lcd_panel_disp_on_off(s_panel, true);
+    }
+    xSemaphoreGive(s_lock);
+    ESP_RETURN_ON_ERROR(err, TAG, "panel reset / init");
 
     s_ready = true;
     ESP_LOGI(TAG, "%s %dx%d on QSPI at %d MHz (the panel cannot be read back: check the picture)",

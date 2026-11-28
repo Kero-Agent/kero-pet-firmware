@@ -134,6 +134,7 @@ static int cmd_init(int argc, char **argv)
             }
         }
         app_modules_print_status();
+        app_face_start();
         return 0;
     }
     app_module_t *m = find_module(argv[1]);
@@ -142,6 +143,9 @@ static int cmd_init(int argc, char **argv)
         return 1;
     }
     init_one(m);
+    if (strcmp(m->name, "display") == 0) {
+        app_face_start();   /* the panel was reset: draw the whole face again */
+    }
     printf("%s: %s\n", m->name, m->result == ESP_OK ? "ok" : esp_err_to_name(m->result));
     return m->result == ESP_OK ? 0 : 1;
 }

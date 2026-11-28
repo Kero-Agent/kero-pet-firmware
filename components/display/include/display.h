@@ -20,6 +20,12 @@
 extern "C" {
 #endif
 
+/**
+ * Start the backlight and the panel. Can be called again (console: "init display")
+ * to send the reset and init sequence once more, e.g. when the screen was
+ * plugged in after power-up - the panel cannot be read, so this never fails
+ * just because no screen is connected.
+ */
 esp_err_t display_init(void);
 
 bool display_is_ready(void);
@@ -52,6 +58,13 @@ esp_err_t display_test_pattern(void);
 esp_err_t display_set_invert(bool invert);
 esp_err_t display_set_mirror(bool mirror_x, bool mirror_y);
 esp_err_t display_set_on(bool on);
+
+/**
+ * Something that animates the screen on its own (the face in main) registers a
+ * hook here; the lcd drawing commands call it first so the two do not fight.
+ */
+void display_set_takeover_hook(void (*hook)(void));
+void display_takeover(void);
 
 /** Console command: lcd. */
 void display_register_commands(void);

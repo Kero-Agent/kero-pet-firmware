@@ -21,13 +21,16 @@ static int cmd_preview(int argc, char **argv)
     const int64_t t_end = esp_timer_get_time() + (int64_t)seconds * 1000000;
     const int64_t t0 = esp_timer_get_time();
     int frames = 0;
+    const bool face_was_running = app_face_is_running();
+    app_face_stop();
     display_fill(0);
+    esp_err_t err = ESP_OK;
     while (esp_timer_get_time() < t_end) {
         kcam_frame_t f;
-        esp_err_t err = kcam_capture(&f);
+        err = kcam_capture(&f);
         if (err != ESP_OK) {
             printf("capture failed: %s\n", esp_err_to_name(err));
-            return 1;
+            break;
         }
         /* centre the 320 x 240 picture on the 360 x 360 screen */
         const int x = (display_width() - f.width) / 2;
@@ -36,9 +39,15 @@ static int cmd_preview(int argc, char **argv)
         kcam_release(&f);
         if (err != ESP_OK) {
             printf("draw failed: %s\n", esp_err_to_name(err));
-            return 1;
+            break;
         }
         frames++;
+    }
+    if (face_was_running) {
+        app_face_start();
+    }
+    if (err != ESP_OK) {
+        return 1;
     }
     printf("%d frames, %.1f per second\n", frames, frames * 1e6 / (double)(esp_timer_get_time() - t0));
     return 0;

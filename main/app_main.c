@@ -20,6 +20,8 @@ void app_main(void)
     if (shell_init() == ESP_OK) {
         app_modules_register_commands();
         app_preview_register_commands();
+        app_image_register_commands();
+        app_face_register_commands();   /* also starts the face */
         app_modules_print_status();
         shell_start();
     } else {
