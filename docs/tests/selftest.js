@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { rgbaToBase64 } from '../js/picture.js';
-import { checkManifest, looksLikeEspImage, md5Hex } from '../js/flash.js';
+import { checkManifest, fetchImages, looksLikeEspImage, md5Hex } from '../js/flash.js';
 import { Link, cleanText } from '../js/link.js';
 import { Robot, parseStatus, parseSys, parseBattery, parseImu, parseMicLevel, parseCamShot, parseI2cScan, parseServoState } from '../js/robot.js';
 
@@ -226,6 +226,22 @@ await test('firmware manifest checks reject bad layouts', async () => {
   assert.throws(() => checkManifest({ parts: [part('../a.bin', 0, 10)] }));                            // path
   assert.throws(() => checkManifest({ parts: [part('a.bin', 0x10000, 16 * 1024 * 1024)] }));           // too big
   assert.deepEqual(checkManifest({ parts: [part('b.bin', 0x8000, 10), part('a.bin', 0, 10)] }).map((p) => p.file), ['a.bin', 'b.bin']);
+});
+
+await test('firmware download: a stale file is fetched again, a wrong one is refused', async () => {
+  const good = new Uint8Array([0xE9, 1, 2, 3]), stale = new Uint8Array([0xE9, 9, 9, 9]);
+  const sha = Buffer.from(await crypto.subtle.digest('SHA-256', good)).toString('hex');
+  const manifest = { parts: [{ file: 'firmware.bin', offset: 0x10000, size: 4, sha256: sha }] };
+  const urls = [];
+  const server = (answers) => async (url) => {
+    urls.push(String(url));
+    return { ok: true, status: 200, arrayBuffer: async () => answers.shift().buffer };
+  };
+  const images = await fetchImages(manifest, server([stale, good]));
+  assert.deepEqual([...images[0].data], [...good]);
+  assert.equal(urls.length, 2);
+  assert.ok(urls[0].includes('?v=' + sha.slice(0, 16)) && urls[1] !== urls[0]);
+  await assert.rejects(fetchImages(manifest, server([stale, stale])), /对不上/);
 });
 
 await test('md5 matches the reference values', async () => {

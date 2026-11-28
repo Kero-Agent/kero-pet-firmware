@@ -104,6 +104,7 @@ pio run -t menuconfig   配置菜单 → Kero robot
 - 本地打开：`cd docs && python -m http.server 8000`，然后访问 `http://localhost:8000`。直接双击 `index.html` 不行。
 - 自检：`node docs/tests/selftest.js`，不需要浏览器和硬件；改动 `docs/` 时 `.github/workflows/web-test.yml` 也会自动跑一遍。
 - 连接真机前先关掉 `pio device monitor`，一个串口只能被一个程序占用。
+- 缓存：GitHub Pages 让浏览器把文件缓存 10 分钟。页面每次加载都给自己的脚本加一个时间戳参数（`index.html` 里的 import map），固件文件按校验和取，所以推送后普通刷新就能拿到新版本，不会出现"新页面配旧脚本"或"新清单配旧固件"。新增 `js/` 模块时把名字加进 `index.html` 的列表。
 - **在网页里烧录固件**：调试页左侧"系统"卡片里，"重启固件"下面有"固件更新"。"烧录最新固件"把网页自带的固件（`docs/firmware/`）写进机器人，不用装任何开发工具；"烧录本地 firmware.bin…"只替换应用部分，用来试自己刚编译的版本。烧完会自动重启并重新连接。连不上时按住 BOOT，按一下 RST，松开 BOOT，再点一次。
 - **发布新固件到网页**：`pio run` 编译后运行 `python3 tools/publish_firmware.py`，它把三个 bin 和清单 `manifest.json` 复制到 `docs/firmware/`，提交并推送后网页上就是新版本。先提交源码再发布，清单里记录的是编译时的提交号。
 

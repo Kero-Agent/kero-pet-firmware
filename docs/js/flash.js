@@ -37,25 +37,44 @@ async function sha256Hex(data) {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// GitHub Pages lets browsers and its own servers keep files for ten minutes, and the
+// firmware files keep their names from one release to the next. Right after a release
+// an old firmware.bin could therefore arrive next to a new manifest. A query string
+// makes the address unique: the time for the manifest, the checksum for each file.
+function firmwareUrl(file, tag) {
+  const url = new URL('../firmware/' + file, import.meta.url);
+  url.searchParams.set('v', tag);
+  return url;
+}
+
 /** Read firmware/manifest.json: which firmware this page can install. */
 export async function fetchManifest(fetchFn = fetch) {
-  const res = await fetchFn(new URL('../firmware/manifest.json', import.meta.url), { cache: 'no-store' });
+  const res = await fetchFn(firmwareUrl('manifest.json', Date.now()), { cache: 'no-store' });
   if (!res.ok) throw new Error('读不到固件清单（HTTP ' + res.status + '）');
   const manifest = await res.json();
   checkManifest(manifest);
   return manifest;
 }
 
+async function fetchPart(p, tag, fetchFn) {
+  const res = await fetchFn(firmwareUrl(p.file, tag), { cache: 'no-store' });
+  if (!res.ok) throw new Error('下载 ' + p.file + ' 失败（HTTP ' + res.status + '）');
+  const data = new Uint8Array(await res.arrayBuffer());
+  const good = data.length === p.size && (!p.sha256 || (await sha256Hex(data)) === p.sha256);
+  return { data, good };
+}
+
 /** Download every file of a manifest and verify size and checksum. */
 export async function fetchImages(manifest, fetchFn = fetch) {
   const images = [];
   for (const p of checkManifest(manifest)) {
-    const res = await fetchFn(new URL('../firmware/' + p.file, import.meta.url), { cache: 'no-store' });
-    if (!res.ok) throw new Error('下载 ' + p.file + ' 失败（HTTP ' + res.status + '）');
-    const data = new Uint8Array(await res.arrayBuffer());
-    if (data.length !== p.size) throw new Error(p.file + ' 大小不对：' + data.length + '，应为 ' + p.size);
-    if (p.sha256 && (await sha256Hex(data)) !== p.sha256) throw new Error(p.file + ' 校验和不对，文件可能没下载完整');
-    images.push({ name: p.file, address: p.offset, data });
+    const tag = p.sha256 ? p.sha256.slice(0, 16) : String(p.size);
+    let part = await fetchPart(p, tag, fetchFn);
+    if (!part.good) part = await fetchPart(p, tag + '-' + Date.now(), fetchFn);      // once more, past every cache
+    if (!part.good) {
+      throw new Error(p.file + ' 和固件清单对不上（大小或校验和不一致）。网页可能正在更新，等一分钟、刷新页面后再试');
+    }
+    images.push({ name: p.file, address: p.offset, data: part.data });
   }
   return images;
 }

@@ -425,6 +425,25 @@
   </form>
 </dialog>
 
-<script type="module" src="js/app.js"></script>
+<script>
+  // GitHub Pages lets the browser keep scripts for ten minutes, so right after an update
+  // a new page could run with old scripts (buttons that do nothing). Give every module of
+  // the site a fresh address on each page load. A module missing from this list still
+  // works, it is just cached as before. The flasher library in vendor/ never changes.
+  (function () {
+    var stamp = Date.now();
+    var names = ['app', 'robot', 'debug', 'showcase', 'link', 'sim', 'chart', 'pet', 'picture', 'flash'];
+    var imports = {};
+    names.forEach(function (n) { imports['./js/' + n + '.js'] = './js/' + n + '.js?v=' + stamp; });
+    var map = document.createElement('script');
+    map.type = 'importmap';
+    map.textContent = JSON.stringify({ imports: imports });
+    document.currentScript.after(map);
+    var css = document.querySelector('link[href="css/style.css"]');
+    if (css) css.href = 'css/style.css?v=' + stamp;
+  })();
+</script>
+<!-- An import, not src=: only import specifiers go through the import map above. -->
+<script type="module">import './js/app.js';</script>
 </body>
 </html>
