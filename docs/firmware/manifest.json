@@ -1,7 +1,7 @@
 {
   "name": "kero-firmware",
   "chip": "ESP32-S3",
-  "version": "97ae327",
+  "version": "9e5b32a",
   "built": "2026-11-28",
   "parts": [
     {
@@ -19,8 +19,8 @@
     {
       "file": "firmware.bin",
       "offset": 65536,
-      "size": 461920,
-      "sha256": "853423b7078a9e72f39c3bab69f6eb7ae89d073e892c6ae606d12258ddc682c3"
+      "size": 462928,
+      "sha256": "ef7cbad56fbf6e8145359d987fe585c5a3113858be85f38fc10ec65acc185ce4"
     }
   ]
 }
