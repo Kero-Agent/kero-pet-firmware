@@ -2,6 +2,7 @@
 
 import { JOINTS, JOINT_KEYS, SERVO_COUNT, parseI2cScan } from './robot.js';
 import { drawChart } from './chart.js';
+import { PICTURE_SIZE, rgbaToBase64 } from './picture.js';
 import { fetchManifest, fetchImages, imagesFromFile, pickPort, flashFirmware } from './flash.js';
 
 const $ = (id) => document.getElementById(id);
@@ -294,6 +295,98 @@ export function initDebug(robot) {
   $('lcd-off').onclick = () => { robot.lcd('off'); screenIcon.classList.add('off'); };
   $('lcd-on').onclick = () => { robot.lcd('on'); screenIcon.classList.remove('off'); };
 
+  // picture for the screen: choose, zoom, drag, send
+  const picCv = $('pic-cv'), picCtx = picCv.getContext('2d', { willReadFrequently: true });
+  const picView = $('pic-view');
+  let picture = null, picZoom = 1, picX = 0, picY = 0, picBusy = false;
+  function picSay(text, bad) {
+    $('pic-msg').hidden = !text;
+    $('pic-msg').textContent = text;
+    $('pic-msg').className = 'note' + (bad ? ' bad' : '');
+  }
+  function picButtons() {
+    $('pic-send').disabled = !picture || picBusy || !robot.connected;
+  }
+  function drawPicture() {
+    picCtx.fillStyle = '#000';
+    picCtx.fillRect(0, 0, PICTURE_SIZE, PICTURE_SIZE);
+    if (!picture) return;
+    const k = Math.max(PICTURE_SIZE / picture.width, PICTURE_SIZE / picture.height) * picZoom;   // cover the screen
+    const w = picture.width * k, h = picture.height * k;
+    const maxX = (w - PICTURE_SIZE) / 2, maxY = (h - PICTURE_SIZE) / 2;
+    picX = Math.min(maxX, Math.max(-maxX, picX));
+    picY = Math.min(maxY, Math.max(-maxY, picY));
+    picCtx.imageSmoothingQuality = 'high';
+    picCtx.drawImage(picture, (PICTURE_SIZE - w) / 2 + picX, (PICTURE_SIZE - h) / 2 + picY, w, h);
+  }
+  async function loadPicture(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    try {
+      picture = await createImageBitmap(file);
+    } catch (e) {
+      picSay('这个文件打不开：' + e.message, true);
+      return;
+    }
+    picZoom = 1; picX = picY = 0;
+    $('pic-zoom').value = 1;
+    $('pic-zoom').disabled = false;
+    $('pic-hint').hidden = true;
+    picSay('');
+    drawPicture();
+    picButtons();
+  }
+  $('pic-pick').onclick = () => $('pic-file').click();
+  $('pic-file').addEventListener('change', (ev) => { loadPicture(ev.target.files[0]); ev.target.value = ''; });
+  $('pic-zoom').addEventListener('input', (ev) => { picZoom = Number(ev.target.value); drawPicture(); });
+  picView.addEventListener('dragover', (ev) => { ev.preventDefault(); picView.classList.add('drop'); });
+  picView.addEventListener('dragleave', () => picView.classList.remove('drop'));
+  picView.addEventListener('drop', (ev) => {
+    ev.preventDefault();
+    picView.classList.remove('drop');
+    loadPicture(ev.dataTransfer.files[0]);
+  });
+  let picDrag = null;
+  picView.addEventListener('pointerdown', (ev) => {
+    if (!picture) return;
+    picDrag = { x: ev.clientX, y: ev.clientY, picX, picY };
+    picView.setPointerCapture(ev.pointerId);
+  });
+  picView.addEventListener('pointermove', (ev) => {
+    if (!picDrag) return;
+    const k = PICTURE_SIZE / picView.clientWidth;
+    picX = picDrag.picX + (ev.clientX - picDrag.x) * k;
+    picY = picDrag.picY + (ev.clientY - picDrag.y) * k;
+    drawPicture();
+  });
+  picView.addEventListener('pointerup', () => { picDrag = null; });
+  picView.addEventListener('pointercancel', () => { picDrag = null; });
+
+  $('pic-send').onclick = async () => {
+    if (!picture || picBusy) return;
+    picBusy = true;
+    picButtons();
+    $('pic-meter').hidden = false;
+    $('pic-bar').style.width = '0%';
+    const t0 = Date.now();
+    try {
+      const data = rgbaToBase64(picCtx.getImageData(0, 0, PICTURE_SIZE, PICTURE_SIZE).data);
+      await robot.sendPicture(data, (f) => {
+        $('pic-bar').style.width = Math.round(f * 100) + '%';
+        picSay('正在发送… ' + Math.round(f * 100) + '%');
+      });
+      picSay('发送完成，用时 ' + ((Date.now() - t0) / 1000).toFixed(1) + ' 秒。'
+        + (robot.mode === 'sim' ? '现在是模拟模式，真机屏幕上不会有变化。' : ''));
+    } catch (e) {
+      picSay(e.message, true);
+    } finally {
+      picBusy = false;
+      picButtons();
+    }
+  };
+  $('lcd-face').onclick = () => robot.face();
+  $('pic-again').onclick = () => robot.showPictureAgain();
+  drawPicture();
+
   // ---------------- camera ----------------
   $('cam-init').onclick = () => robot.initModule('camera');
   $('cam-shot').onclick = async () => {
@@ -367,6 +460,7 @@ export function initDebug(robot) {
   // ---------------- wiring ----------------
   robot.subscribe((topic) => {
     if (topic === 'modules' || topic === 'conn') renderModules();
+    if (topic === 'conn') picButtons();
     if (topic === 'sys') renderSys();
     if (topic === 'servo' || topic === 'config' || topic === 'conn') renderServos();
     if (topic === 'motor') renderMotors();

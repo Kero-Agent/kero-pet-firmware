@@ -3,6 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { rgbaToBase64 } from '../js/picture.js';
 import { checkManifest, looksLikeEspImage, md5Hex } from '../js/flash.js';
 import { Link, cleanText } from '../js/link.js';
 import { Robot, parseStatus, parseSys, parseBattery, parseImu, parseMicLevel, parseCamShot, parseI2cScan, parseServoState } from '../js/robot.js';
@@ -172,6 +173,35 @@ await test('calibration maps degrees to pulse width and back', async () => {
   robot.config.cal[0].invert = true;
   assert.equal(robot.degToPulse(0, 0), 2500);
   assert.equal(robot.pulseToDeg(0, 2500), 0);
+});
+
+await test('picture: pixels become RGB565, high byte first', async () => {
+  // red, green, blue, white
+  const rgba = new Uint8Array([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]);
+  const bytes = Buffer.from(rgbaToBase64(rgba, 2), 'base64');
+  assert.deepEqual([...bytes], [0xF8, 0x00, 0x07, 0xE0, 0x00, 0x1F, 0xFF, 0xFF]);
+});
+
+await test('picture upload against the simulator, then normal commands again', async () => {
+  const robot = new Robot();
+  await robot.connectSim();
+  const data = rgbaToBase64(new Uint8Array(360 * 360 * 4).fill(128));
+  assert.equal(data.length, 345600);
+  let last = 0;
+  await robot.sendPicture(data, (f) => { last = f; });
+  assert.equal(last, 1);
+  const r = await robot.cmd('face');
+  assert.deepEqual(r.lines, ['ok']);
+  await robot.disconnect();
+});
+
+await test('picture upload reports old firmware and a silent board', async () => {
+  const link = new Link();
+  await link.attach(new ScriptedTransport((text) => text === '\n' ? ['kero> '] : ['img recv\n', 'Unrecognized command\n', 'kero> ']));
+  const { uploadPicture } = await import('../js/picture.js');
+  await assert.rejects(link.exclusive((io) => uploadPicture(io, 'AAAA')), /烧录最新固件/);
+  assert.deepEqual((await link.send('x')).lines.slice(-1), ['Unrecognized command']);     // the link still works
+  await link.detach();
 });
 
 await test('firmware manifest matches the published binaries', async () => {

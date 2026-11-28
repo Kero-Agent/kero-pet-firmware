@@ -29,7 +29,6 @@ components/
   shell/     USB 调试命令行
 docs/        网页调试台（见下面"网页调试台"一节）
 tools/
-  kero-image.html   网页工具：选图片、裁剪、发到屏幕（Chrome / Edge 直接打开）
   face_preview.c    在电脑上把表情画成图片，不用烧录就能看效果
   publish_firmware.py  把编译好的固件发布到 docs/firmware/，供网页烧录
 ```
@@ -78,13 +77,13 @@ pio run -t menuconfig   配置菜单 → Kero robot
 | `cam` | 传感器 ID；`cam shot [帧数]` 抓帧并统计帧率 |
 | `preview [秒]` | 摄像头画面显示到屏幕 |
 | `face` | 恢复默认的眨眼表情；`face off` 停止并清屏 |
-| `img show` | 再显示上一张上传的图片（上传用 `tools/kero-image.html`） |
+| `img show` | 再显示上一张上传的图片（上传在网页调试台的"屏幕"面板里） |
 
 ## 屏幕测试：表情和图片
 
 屏幕初始化成功后，默认显示一个会眨眼、会转眼珠的表情。`lcd test` / `lcd fill` / `lcd rect`、`preview` 和上传图片会暂停表情，敲 `face` 恢复。
 
-上传自己的图片：用电脑上的 Chrome 或 Edge 打开 `tools/kero-image.html`，点"连接机器人"选串口，选一张图片（可缩放、拖动），点"发送到屏幕"。图片会缩放裁剪成 360×360，从上往下逐行出现，大约十几秒。图片只存在内存里，重启后恢复为表情。同一时间只能有一个程序占用串口，发图前先关掉其它串口终端。
+上传自己的图片：打开网页调试台的调试页，在"屏幕"面板里点"选择图片…"（可缩放、拖动位置），再点"发送到屏幕"。图片会裁成 360×360，从上往下逐行出现。图片只存在内存里，重启后恢复为表情；同一面板里的"恢复表情"随时切回去。
 
 屏幕是开机后才插上的话，敲 `init display` 重新发送初始化序列（面板不能回读，所以没接屏幕时 `status` 也显示 ok）。
 
@@ -104,11 +103,11 @@ pio run -t menuconfig   配置菜单 → Kero robot
 - **在网页里烧录固件**：调试页左侧"系统"卡片里，"重启固件"下面有"固件更新"。"烧录最新固件"把网页自带的固件（`docs/firmware/`）写进机器人，不用装任何开发工具；"烧录本地 firmware.bin…"只替换应用部分，用来试自己刚编译的版本。烧完会自动重启并重新连接。连不上时按住 BOOT，按一下 RST，松开 BOOT，再点一次。
 - **发布新固件到网页**：`pio run` 编译后运行 `python3 tools/publish_firmware.py`，它把三个 bin 和清单 `manifest.json` 复制到 `docs/firmware/`，提交并推送后网页上就是新版本。先提交源码再发布，清单里记录的是编译时的提交号。
 
-代码结构：`js/flash.js` 固件烧录（用 `vendor/esptool-js/` 里乐鑫的 esptool-js），`js/link.js` 命令队列和串口，`js/sim.js` 模拟机器人，`js/robot.js` 把命令包成函数并解析输出，`js/debug.js` / `js/showcase.js` 两个页面，`js/pet.js` 模型。固件命令的输出格式改了，要同步改 `robot.js` 里的解析函数和 `sim.js`。
+代码结构：`js/picture.js` 图片转换和上传，`js/flash.js` 固件烧录（用 `vendor/esptool-js/` 里乐鑫的 esptool-js），`js/link.js` 命令队列和串口，`js/sim.js` 模拟机器人，`js/robot.js` 把命令包成函数并解析输出，`js/debug.js` / `js/showcase.js` 两个页面，`js/pet.js` 模型。固件命令的输出格式改了，要同步改 `robot.js` 里的解析函数和 `sim.js`。
 
 舵机通道默认按 CH0 脖子 α、CH1 脖子 β、CH2 左肩、CH3 左肘、CH4 右肩、CH5 右肘，可以在调试页改；校准值存在浏览器里，连接时写进机器人。
 
-网页里还做不了的：摄像头画面（固件只能报每帧的平均颜色）、让真机圆屏显示表情、无线连接。
+网页里还做不了的：摄像头画面（固件只能报每帧的平均颜色）、让真机圆屏显示展示页里选的表情（真机上只有默认的眨眼表情和上传的图片）、无线连接。
 
 ## 建议的上电顺序
 

@@ -15,6 +15,7 @@ export class SimTransport {
     this.buffer = '';
     this.busy = Promise.resolve();
     this.closed = false;
+    this.recv = null;           // characters received so far while a picture is coming in
     this.t0 = Date.now();
     this.s = {
       pulse: [0, 0, 0, 0, 0, 0],
@@ -35,6 +36,20 @@ export class SimTransport {
   }
 
   write(text) {
+    if (this.recv !== null) {
+      // "img recv": base64 text, one dot back per 192 characters (see main/app_image.c)
+      for (const ch of text) {
+        if (ch === '\r' || ch === '\n') continue;
+        this.recv++;
+        if (this.recv % 192 === 0) this._out('.');
+        if (this.recv === 360 * 360 * 2 / 3 * 4) {
+          this.recv = null;
+          this._out('\nDONE\nkero> ');
+          break;
+        }
+      }
+      return Promise.resolve();
+    }
     this.buffer += text;
     let i;
     while ((i = this.buffer.indexOf('\n')) >= 0) {
@@ -59,7 +74,7 @@ export class SimTransport {
       reply = ['sim error: ' + e.message];
     }
     for (const l of reply) this._out(l + '\n');
-    this._out('kero> ');
+    if (this.recv === null) this._out('kero> ');
   }
 
   _servoDeg(id) {
@@ -80,7 +95,7 @@ export class SimTransport {
     if (a.length === 0) return [];
     switch (a[0]) {
       case 'help':
-        return ['help  status  init  sys  reboot  log  i2c  bat  pca  servo  motor  imu  spk  mic  lcd  cam  preview', '（模拟模式：没有连接真机）'];
+        return ['help  status  init  sys  reboot  log  i2c  bat  pca  servo  motor  imu  spk  mic  lcd  cam  preview  face  img', '（模拟模式：没有连接真机）'];
 
       case 'status':
         return ['module    state', ...MODULES.map((m) => pad(m, 9) + ' ok')];
@@ -218,6 +233,16 @@ export class SimTransport {
       case 'lcd':
         if (a.length === 1) return ['panel ready, 360x360, backlight ' + s.backlight + ' %'];
         if (a[1] === 'bl') s.backlight = Math.max(0, Math.min(100, +a[2]));
+        return ['ok'];
+
+      case 'face':
+        return ['ok'];
+
+      case 'img':
+        if (a[1] === 'recv') {
+          this.recv = 0;
+          return ['READY 192'];
+        }
         return ['ok'];
 
       case 'cam': {

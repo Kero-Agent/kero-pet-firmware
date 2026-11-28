@@ -188,7 +188,28 @@
             <button type="button" class="btn" id="lcd-off">关屏</button>
             <button type="button" class="btn" id="lcd-on">开屏</button>
           </div>
-          <p class="hint">360×360 圆屏。触摸芯片还没驱动，地址先用 I2C 扫描找。</p>
+          <div class="pic">
+            <div class="pic-view" id="pic-view">
+              <canvas id="pic-cv" width="360" height="360" aria-label="要发送的图片预览"></canvas>
+              <span id="pic-hint">选一张图片<br>或拖到这里</span>
+            </div>
+            <div class="grow">
+              <div class="row">
+                <button type="button" class="btn" id="pic-pick">选择图片…</button>
+                <input type="file" id="pic-file" accept="image/*" hidden>
+                <button type="button" class="btn primary" id="pic-send" disabled>发送到屏幕</button>
+              </div>
+              <label for="pic-zoom" class="small muted">缩放（拖动预览可以调位置）</label>
+              <input id="pic-zoom" type="range" min="1" max="4" step="0.01" value="1" disabled>
+              <div class="row">
+                <button type="button" class="btn" id="lcd-face">恢复表情</button>
+                <button type="button" class="btn" id="pic-again">再显示上一张</button>
+              </div>
+              <div class="meter" id="pic-meter" hidden><div id="pic-bar"></div></div>
+            </div>
+          </div>
+          <p class="note" id="pic-msg" hidden></p>
+          <p class="hint">360×360 圆屏，开机默认显示会眨眼的表情。上传的图片存在内存里，重启后恢复表情。触摸芯片还没驱动，地址先用 I2C 扫描找。</p>
         </section>
       </div>
 

@@ -136,6 +136,46 @@ export class Link {
     });
   }
 
+  /**
+   * Take the line for a conversation that is not "command, then prompt" shaped
+   * (the picture upload). fn(io) runs when it is this item's turn; nothing else
+   * is sent until its promise settles. io: write(text), text(), clear(),
+   * waitFor(test(text), ms, what).
+   */
+  exclusive(fn) {
+    if (!this.transport) return Promise.reject(new Error('disconnected'));
+    return new Promise((resolve, reject) => {
+      this.queue.push({ cmd: '', exclusive: fn, resolve, reject, quiet: true });
+      this._pump();
+    });
+  }
+
+  _runExclusive(item) {
+    const io = {
+      write: (text) => this.transport.write(text),
+      text: () => this.raw,
+      clear: () => { this.raw = ''; },
+      waitFor: (test, ms, what) => new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { item.check = null; reject(new Error(what + '：等待超时')); }, ms);
+        item.check = () => {
+          if (!test(this.raw)) return;
+          clearTimeout(timer);
+          item.check = null;
+          resolve();
+        };
+        item.check();
+      }),
+    };
+    const done = (settle, value) => {
+      if (this.current !== item) return;      // disconnected meanwhile: already rejected
+      this.current = null;
+      this.raw = '';
+      settle(value);
+      this._pump();
+    };
+    Promise.resolve().then(() => item.exclusive(io)).then((v) => done(item.resolve, v), (e) => done(item.reject, e));
+  }
+
   /** Drop everything that has not been sent yet (emergency stop). */
   clearQueue() {
     for (const item of this.queue) item.resolve({ lines: [], ok: true, superseded: true });
@@ -147,6 +187,10 @@ export class Link {
     const item = this.queue.shift();
     this.current = item;
     this.raw = '';
+    if (item.exclusive) {
+      this._runExclusive(item);
+      return;
+    }
     if (!item.quiet && item.cmd) this._emit('log', 'tx', 'kero> ' + item.cmd);
     item.timer = setTimeout(() => {
       if (this.current !== item) return;
@@ -178,6 +222,10 @@ export class Link {
         }
         this.raw = text.slice(cut + 1);
       }
+      return;
+    }
+    if (this.current.exclusive) {
+      if (this.current.check) this.current.check();
       return;
     }
     if (!PROMPT.test(cleanText(this.raw))) return;

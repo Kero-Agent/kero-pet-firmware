@@ -41,5 +41,5 @@ esp_err_t app_face_start(void);
 void app_face_stop(void);
 bool app_face_is_running(void);
 
-/** Picture upload from the PC ("img" command, used by tools/kero-image.html). */
+/** Picture upload from the PC ("img" command, used by the web console in docs/). */
 void app_image_register_commands(void);

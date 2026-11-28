@@ -2,6 +2,7 @@
 // latest readings, and remembers which servo channel drives which joint.
 
 import { Link, SerialTransport } from './link.js';
+import { uploadPicture } from './picture.js';
 import { SimTransport } from './sim.js';
 
 export const SERVO_COUNT = 6;
@@ -394,6 +395,21 @@ export class Robot {
   micEcho(ms) { return this.cmd('mic echo ' + ms, { timeout: ms * 2 + 4000 }); }
   setBacklight(pct) { return this.cmd('lcd bl ' + pct, { key: 'bl' }); }
   lcd(args) { return this.cmd('lcd ' + args); }
+  /** Bring back the animated face, the screen's default picture. */
+  face() { return this.cmd('face'); }
+  showPictureAgain() { return this.cmd('img show'); }
+
+  /** Show a picture (base64 from rgbaToBase64) on the screen. Rejects with a readable message. */
+  async sendPicture(base64, onProgress) {
+    this.link.log('tx', 'kero> img recv   （上传图片，' + Math.round(base64.length / 1024) + ' KB）');
+    try {
+      await this.link.exclusive((io) => uploadPicture(io, base64, onProgress));
+      this.link.log('rx', 'DONE');
+    } catch (e) {
+      this.link.log('err', e.message);
+      throw e;
+    }
+  }
 
   async camShot(count = 1) {
     const r = await this.cmd('cam shot ' + count, { timeout: 4000 + count * 1500 });

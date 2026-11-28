@@ -1,5 +1,5 @@
 /**
- * "img": show a picture sent from the PC (tools/kero-image.html).
+ * "img": show a picture sent from the PC (docs/, the web console).
  *
  * Protocol of "img recv", all text so it survives any terminal:
  *   PC:    img recv\n
@@ -138,7 +138,7 @@ static int cmd_img(int argc, char **argv)
         printf("%s\n", err == ESP_OK ? "ok" : esp_err_to_name(err));
         return err == ESP_OK ? 0 : 1;
     }
-    printf("usage: img recv   receive a picture from tools/kero-image.html and show it\n"
+    printf("usage: img recv   receive a picture from the web console and show it\n"
            "       img show   show the last received picture again\n"
            "       (\"face\" brings the animated face back)\n");
     return 1;
@@ -148,7 +148,7 @@ void app_image_register_commands(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "img",
-        .help = "picture from the PC: recv (used by tools/kero-image.html) | show",
+        .help = "picture from the PC: recv (used by the web console in docs/) | show",
         .func = cmd_img,
     };
     esp_console_cmd_register(&cmd);
