@@ -269,6 +269,35 @@ esp_err_t display_test_pattern(void)
     return ESP_OK;
 }
 
+int display_init_sequence_count(void)
+{
+    return display_panel_variant_count();
+}
+
+const char *display_init_sequence_name(int index)
+{
+    return display_panel_variant_name(index);
+}
+
+int display_get_init_sequence(void)
+{
+    return display_panel_get_variant();
+}
+
+esp_err_t display_set_init_sequence(int index)
+{
+    ESP_RETURN_ON_FALSE(s_ready, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    ESP_RETURN_ON_FALSE(index >= 0 && index < display_panel_variant_count(), ESP_ERR_INVALID_ARG, TAG, "no such sequence");
+    /* The driver takes its sequence when the panel object is created: make a new one. */
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    esp_lcd_panel_del(s_panel);
+    s_panel = NULL;
+    s_ready = false;
+    display_panel_set_variant(index);
+    xSemaphoreGive(s_lock);
+    return display_init();
+}
+
 esp_err_t display_set_invert(bool invert)
 {
     ESP_RETURN_ON_FALSE(s_ready, ESP_ERR_INVALID_STATE, TAG, "not initialised");

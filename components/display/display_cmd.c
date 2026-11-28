@@ -76,6 +76,22 @@ static int cmd_lcd(int argc, char **argv)
         }
         return report(display_fill_rect(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), c));
     }
+    if (strcmp(sub, "seq") == 0) {
+        if (argc == 3) {
+            display_takeover();
+            const esp_err_t err = display_set_init_sequence(atoi(argv[2]));
+            if (err != ESP_OK) {
+                return report(err);
+            }
+        }
+        for (int i = 0; i < display_init_sequence_count(); i++) {
+            printf("%c %d  %s\n", i == display_get_init_sequence() ? '*' : ' ', i, display_init_sequence_name(i));
+        }
+        if (argc == 3) {
+            printf("panel initialised again, screen is black - try: lcd test, face\n");
+        }
+        return 0;
+    }
     if (strcmp(sub, "invert") == 0 && argc == 3) {
         return report(display_set_invert(atoi(argv[2]) != 0));
     }
@@ -91,6 +107,7 @@ static int cmd_lcd(int argc, char **argv)
            "  lcd test                    colour bars, grey ramp, orientation marks\n"
            "  lcd fill <colour|rrggbb>    whole screen\n"
            "  lcd rect <x> <y> <w> <h> <colour>\n"
+           "  lcd seq [n]                 list the panel init sequences / switch to one\n"
            "  lcd invert <0|1>            colour inversion\n"
            "  lcd mirror <x:0|1> <y:0|1>\n"
            "  lcd on | off                panel output\n");
@@ -101,7 +118,7 @@ void display_register_commands(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "lcd",
-        .help = "display: bl <0..100> | test | fill <colour> | rect | invert <0|1> | mirror <x> <y> | on | off",
+        .help = "display: bl <0..100> | test | fill <colour> | rect | seq [n] | invert <0|1> | mirror <x> <y> | on | off",
         .func = cmd_lcd,
     };
     esp_console_cmd_register(&cmd);

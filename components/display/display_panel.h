@@ -22,3 +22,9 @@ void display_panel_get_io_params(display_panel_io_params_t *out);
 esp_err_t display_panel_create(esp_lcd_panel_io_handle_t io, esp_lcd_panel_handle_t *out_panel);
 
 const char *display_panel_name(void);
+
+/** A panel driver may know several init sequences; display_panel_create() uses the selected one. */
+int display_panel_variant_count(void);
+const char *display_panel_variant_name(int index);
+int display_panel_get_variant(void);
+void display_panel_set_variant(int index);

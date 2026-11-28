@@ -73,7 +73,7 @@ pio run -t menuconfig   配置菜单 → Kero robot
 | `imu [次数] [间隔ms]` | 加速度、角速度、温度；`imu cal` 陀螺零偏 |
 | `spk tone <Hz> [ms]` | 喇叭发声；`spk scale` 音阶；`spk vol <0..100>` |
 | `mic level` | 麦克风电平；`mic echo [ms]` 录一段再放出来 |
-| `lcd bl <0..100>` | 背光；`lcd test` 彩条；`lcd fill <颜色>`；`lcd invert <0\|1>` |
+| `lcd bl <0..100>` | 背光；`lcd test` 彩条；`lcd fill <颜色>`；`lcd invert <0\|1>`；`lcd seq [编号]` 切换初始化序列 |
 | `cam` | 传感器 ID；`cam shot [帧数]` 抓帧并统计帧率 |
 | `preview [秒]` | 摄像头画面显示到屏幕 |
 | `face` | 恢复默认的眨眼表情；`face off` 停止并清屏 |
@@ -84,6 +84,8 @@ pio run -t menuconfig   配置菜单 → Kero robot
 屏幕初始化成功后，默认显示一个会眨眼、会转眼珠的表情。`lcd test` / `lcd fill` / `lcd rect`、`preview` 和上传图片会暂停表情，敲 `face` 恢复。
 
 上传自己的图片：打开网页调试台的调试页，在"屏幕"面板里点"选择图片…"（可缩放、拖动位置），再点"发送到屏幕"。图片会裁成 360×360，从上往下逐行出现。图片只存在内存里，重启后恢复为表情；同一面板里的"恢复表情"随时切回去。
+
+屏幕有条纹、花屏或者背光亮但没画面，多半是初始化序列和这块屏不匹配。固件里带了三套 ST77916 的序列，`lcd seq` 列出，`lcd seq <编号>` 切换并重新初始化（网页调试台的"屏幕"面板里也有这个下拉框），不用重新烧录就能逐个试。选择不掉电保存；试出来哪个对，把 `components/display/display_panel_st77916.c` 里 `s_variant` 的初值改成它。卖家给了专用序列的话，在同一个文件里加一张表。
 
 屏幕是开机后才插上的话，敲 `init display` 重新发送初始化序列（面板不能回读，所以没接屏幕时 `status` 也显示 ok）。
 

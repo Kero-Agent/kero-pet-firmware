@@ -55,6 +55,15 @@ esp_err_t display_draw(int x, int y, int w, int h, const uint16_t *pixels);
 /** Colour bars, grey ramp and a border: shows colour order, inversion and orientation. */
 esp_err_t display_test_pattern(void);
 
+/**
+ * Init sequences the panel driver knows. Selecting one resets the panel and
+ * initialises it again with that sequence; the screen is black afterwards.
+ */
+int display_init_sequence_count(void);
+const char *display_init_sequence_name(int index);
+int display_get_init_sequence(void);
+esp_err_t display_set_init_sequence(int index);
+
 esp_err_t display_set_invert(bool invert);
 esp_err_t display_set_mirror(bool mirror_x, bool mirror_y);
 esp_err_t display_set_on(bool on);
